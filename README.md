@@ -1,5 +1,4 @@
-# 📦 LibraryGUI v2
-> A clean, lightweight Roblox UI Library for building script hubs and GUIs — with tabs, sections, buttons, toggles, dropboxes, sliders, and keybinds.
+# 📦 Repo Library
 
 ---
 
