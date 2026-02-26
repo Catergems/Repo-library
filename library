@@ -276,6 +276,8 @@ function Library:CreateWindow(title)
 	Window._sg = SG
 	Window._main = Main
 	Window._allTabBtns = {}
+	Window._config = {}
+	Window._configCallbacks = {}
 
 	-- window:delete()
 	function Window:delete()
@@ -367,6 +369,7 @@ function Library:CreateWindow(title)
 		local Tab = {}
 		Tab._scroll = TabScroll
 		Tab._sg = SG
+		Tab._window = self
 
 		-- tab:CreateSection("SectionName")
 		function Tab:CreateSection(sectionName)
@@ -421,12 +424,14 @@ function Library:CreateWindow(title)
 			IPad.Parent = ItemList
 
 			local sg = self._sg
+			local win = self._window
 
 			-- Section object
 			local Section = {}
 			Section._header = SectHeader
 			Section._items = ItemList
 			Section._sg = sg
+			Section._window = win
 
 			-- sect:set("NewName") — update section title
 			function Section:set(newName)
@@ -472,6 +477,15 @@ function Library:CreateWindow(title)
 			function Section:CreateToggle(name, desc, default, callback)
 				callback = callback or function() end
 				local state = default or false
+				local configKey = "toggle_" .. name
+				local win = self._window
+				if win then
+					win._config[configKey] = state
+					win._configCallbacks[configKey] = function(v)
+						state = v
+						callback(state)
+					end
+				end
 
 				local Container = Instance.new("Frame")
 				Container.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
@@ -526,6 +540,7 @@ function Library:CreateWindow(title)
 					state = not state
 					Tween(Track, {BackgroundColor3 = state and Color3.fromRGB(90,70,200) or Color3.fromRGB(55,55,70)})
 					Tween(Knob, {Position = state and UDim2.new(1,-16,0.5,-7) or UDim2.new(0,2,0.5,-7)})
+					if win then win._config[configKey] = state end
 					callback(state)
 				end)
 
@@ -756,10 +771,346 @@ function Library:CreateWindow(title)
 				}
 			end
 
+			-- ========================
+			-- sect:CreateSlider("Name","Desc",min,max,default,func)
+			-- ========================
+			function Section:CreateSlider(name, desc, min, max, default, callback)
+				callback = callback or function() end
+				min = min or 0
+				max = max or 100
+				local value = math.clamp(default or min, min, max)
+				local configKey = "slider_" .. name
+				local win = self._window
+				if win then
+					win._config[configKey] = value
+					win._configCallbacks[configKey] = function(v)
+						value = math.clamp(math.round(v), min, max)
+						local rel = (value - min) / (max - min)
+						-- will be updated via SetValue below
+						callback(value)
+					end
+				end
+
+				local Container = Instance.new("Frame")
+				Container.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+				Container.BorderSizePixel = 0
+				Container.Size = UDim2.new(1, 0, 0, 50)
+				Container.Parent = self._items
+				Corner(Container, 5)
+				Stroke(Container, Color3.fromRGB(65,60,110), 1)
+
+				local NameLbl = Instance.new("TextLabel")
+				NameLbl.BackgroundTransparency = 1
+				NameLbl.Position = UDim2.new(0, 8, 0, 2)
+				NameLbl.Size = UDim2.new(0.65, 0, 0, 22)
+				NameLbl.Font = Enum.Font.SourceSansBold
+				NameLbl.Text = name
+				NameLbl.TextColor3 = Color3.fromRGB(230, 230, 230)
+				NameLbl.TextScaled = true
+				NameLbl.TextXAlignment = Enum.TextXAlignment.Left
+				NameLbl.Parent = Container
+
+				local ValueLbl = Instance.new("TextLabel")
+				ValueLbl.BackgroundTransparency = 1
+				ValueLbl.Position = UDim2.new(0.65, 0, 0, 2)
+				ValueLbl.Size = UDim2.new(0.3, -8, 0, 22)
+				ValueLbl.Font = Enum.Font.SourceSansBold
+				ValueLbl.Text = tostring(value)
+				ValueLbl.TextColor3 = Color3.fromRGB(140, 120, 255)
+				ValueLbl.TextScaled = true
+				ValueLbl.TextXAlignment = Enum.TextXAlignment.Right
+				ValueLbl.Parent = Container
+
+				local Track = Instance.new("Frame")
+				Track.BackgroundColor3 = Color3.fromRGB(25, 25, 38)
+				Track.BorderSizePixel = 0
+				Track.Position = UDim2.new(0, 8, 0, 30)
+				Track.Size = UDim2.new(1, -16, 0, 10)
+				Track.Parent = Container
+				Corner(Track, 5)
+
+				local Fill = Instance.new("Frame")
+				local pct = (value - min) / (max - min)
+				Fill.BackgroundColor3 = Color3.fromRGB(100, 80, 220)
+				Fill.BorderSizePixel = 0
+				Fill.Size = UDim2.new(pct, 0, 1, 0)
+				Fill.Parent = Track
+				Corner(Fill, 5)
+
+				local Knob = Instance.new("Frame")
+				Knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+				Knob.BorderSizePixel = 0
+				Knob.Size = UDim2.new(0, 16, 0, 16)
+				Knob.Position = UDim2.new(pct, -8, 0.5, -8)
+				Knob.ZIndex = 2
+				Knob.Parent = Track
+				Corner(Knob, 8)
+
+				local dragging = false
+				local function update(input)
+					local rel = math.clamp((input.Position.X - Track.AbsolutePosition.X) / Track.AbsoluteSize.X, 0, 1)
+					value = math.round(min + (max - min) * rel)
+					ValueLbl.Text = tostring(value)
+					Fill.Size = UDim2.new(rel, 0, 1, 0)
+					Knob.Position = UDim2.new(rel, -8, 0.5, -8)
+					if win then win._config[configKey] = value end
+					callback(value)
+				end
+
+				Track.InputBegan:Connect(function(input)
+					if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+						dragging = true
+						update(input)
+					end
+				end)
+				UIS.InputChanged:Connect(function(input)
+					if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+						update(input)
+					end
+				end)
+				UIS.InputEnded:Connect(function(input)
+					if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+						dragging = false
+					end
+				end)
+
+				Container.MouseEnter:Connect(function()
+					if desc and desc ~= "" then ShowTooltip(sg, desc) end
+				end)
+				Container.MouseLeave:Connect(function() HideTooltip() end)
+
+				callback(value)
+
+				return {
+					GetValue = function() return value end,
+					SetValue = function(v)
+						value = math.clamp(math.round(v), min, max)
+						local rel = (value - min) / (max - min)
+						ValueLbl.Text = tostring(value)
+						Fill.Size = UDim2.new(rel, 0, 1, 0)
+						Knob.Position = UDim2.new(rel, -8, 0.5, -8)
+						callback(value)
+					end
+				}
+			end
+
+			-- ========================
+			-- sect:CreateTextbox("Name","Desc","placeholder",func)
+			-- ========================
+			function Section:CreateTextbox(name, desc, placeholder, callback)
+				callback = callback or function() end
+				placeholder = placeholder or "Type here..."
+				local configKey = "textbox_" .. name
+				local win = self._window
+				if win then
+					win._config[configKey] = ""
+					win._configCallbacks[configKey] = function(v)
+						-- applied via SetText on load
+						callback(v, false)
+					end
+				end
+
+				local Container = Instance.new("Frame")
+				Container.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+				Container.BorderSizePixel = 0
+				Container.Size = UDim2.new(1, 0, 0, 50)
+				Container.Parent = self._items
+				Corner(Container, 5)
+				Stroke(Container, Color3.fromRGB(65,60,110), 1)
+
+				local NameLbl = Instance.new("TextLabel")
+				NameLbl.BackgroundTransparency = 1
+				NameLbl.Position = UDim2.new(0, 8, 0, 2)
+				NameLbl.Size = UDim2.new(1, -16, 0, 20)
+				NameLbl.Font = Enum.Font.SourceSansBold
+				NameLbl.Text = name
+				NameLbl.TextColor3 = Color3.fromRGB(230, 230, 230)
+				NameLbl.TextScaled = true
+				NameLbl.TextXAlignment = Enum.TextXAlignment.Left
+				NameLbl.Parent = Container
+
+				local InputBox = Instance.new("TextBox")
+				InputBox.BackgroundColor3 = Color3.fromRGB(22, 22, 35)
+				InputBox.BorderSizePixel = 0
+				InputBox.Position = UDim2.new(0, 8, 0, 26)
+				InputBox.Size = UDim2.new(1, -16, 0, 18)
+				InputBox.Font = Enum.Font.SourceSans
+				InputBox.PlaceholderText = placeholder
+				InputBox.PlaceholderColor3 = Color3.fromRGB(100, 100, 120)
+				InputBox.Text = ""
+				InputBox.TextColor3 = Color3.fromRGB(230, 230, 230)
+				InputBox.TextScaled = true
+				InputBox.TextXAlignment = Enum.TextXAlignment.Left
+				InputBox.ClearTextOnFocus = false
+				InputBox.Parent = Container
+				Corner(InputBox, 4)
+				Stroke(InputBox, Color3.fromRGB(70,60,130), 1)
+
+				InputBox.FocusLost:Connect(function(enterPressed)
+					if win then win._config[configKey] = InputBox.Text end
+					callback(InputBox.Text, enterPressed)
+				end)
+
+				Container.MouseEnter:Connect(function()
+					if desc and desc ~= "" then ShowTooltip(sg, desc) end
+				end)
+				Container.MouseLeave:Connect(function() HideTooltip() end)
+
+				return {
+					GetText = function() return InputBox.Text end,
+					SetText = function(t) InputBox.Text = t end,
+					Clear = function() InputBox.Text = "" end,
+				}
+			end
+
+			-- ========================
+			-- sect:CreateLabel("Text")
+			-- ========================
+			function Section:CreateLabel(text)
+				local Lbl = Instance.new("TextLabel")
+				Lbl.BackgroundTransparency = 1
+				Lbl.BorderSizePixel = 0
+				Lbl.Size = UDim2.new(1, 0, 0, 22)
+				Lbl.Font = Enum.Font.SourceSans
+				Lbl.Text = text or ""
+				Lbl.TextColor3 = Color3.fromRGB(180, 180, 200)
+				Lbl.TextScaled = true
+				Lbl.TextXAlignment = Enum.TextXAlignment.Left
+				Lbl.Parent = self._items
+
+				local Pad = Instance.new("UIPadding")
+				Pad.PaddingLeft = UDim.new(0, 8)
+				Pad.Parent = Lbl
+
+				return {
+					SetText = function(t) Lbl.Text = t end,
+					GetText = function() return Lbl.Text end,
+				}
+			end
+
 			return Section
 		end
 
 		return Tab
+	end
+
+	-- ========================
+	-- window:Notify(title, message, duration)
+	-- ========================
+	function Window:Notify(title, message, duration)
+		duration = duration or 3
+		local sg = self._sg
+
+		local NotifFrame = Instance.new("Frame")
+		NotifFrame.BackgroundColor3 = Color3.fromRGB(28, 28, 42)
+		NotifFrame.BorderSizePixel = 0
+		NotifFrame.Size = UDim2.new(0, 240, 0, 65)
+		NotifFrame.Position = UDim2.new(1, -250, 1, 80)
+		NotifFrame.AnchorPoint = Vector2.new(0, 1)
+		NotifFrame.ZIndex = 200
+		NotifFrame.Parent = sg
+		Corner(NotifFrame, 8)
+		Stroke(NotifFrame, Color3.fromRGB(100, 80, 220), 1.5)
+
+		-- Accent bar
+		local Bar = Instance.new("Frame")
+		Bar.BackgroundColor3 = Color3.fromRGB(100, 80, 220)
+		Bar.BorderSizePixel = 0
+		Bar.Size = UDim2.new(0, 3, 1, -16)
+		Bar.Position = UDim2.new(0, 6, 0, 8)
+		Bar.ZIndex = 201
+		Bar.Parent = NotifFrame
+		Corner(Bar, 2)
+
+		local TitleLbl = Instance.new("TextLabel")
+		TitleLbl.BackgroundTransparency = 1
+		TitleLbl.Position = UDim2.new(0, 16, 0, 6)
+		TitleLbl.Size = UDim2.new(1, -20, 0, 22)
+		TitleLbl.Font = Enum.Font.SourceSansBold
+		TitleLbl.Text = title or "Notification"
+		TitleLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
+		TitleLbl.TextScaled = true
+		TitleLbl.TextXAlignment = Enum.TextXAlignment.Left
+		TitleLbl.ZIndex = 201
+		TitleLbl.Parent = NotifFrame
+
+		local MsgLbl = Instance.new("TextLabel")
+		MsgLbl.BackgroundTransparency = 1
+		MsgLbl.Position = UDim2.new(0, 16, 0, 30)
+		MsgLbl.Size = UDim2.new(1, -20, 0, 22)
+		MsgLbl.Font = Enum.Font.SourceSans
+		MsgLbl.Text = message or ""
+		MsgLbl.TextColor3 = Color3.fromRGB(180, 180, 200)
+		MsgLbl.TextScaled = true
+		MsgLbl.TextXAlignment = Enum.TextXAlignment.Left
+		MsgLbl.ZIndex = 201
+		MsgLbl.Parent = NotifFrame
+
+		-- Progress bar
+		local ProgBG = Instance.new("Frame")
+		ProgBG.BackgroundColor3 = Color3.fromRGB(20, 20, 32)
+		ProgBG.BorderSizePixel = 0
+		ProgBG.Position = UDim2.new(0, 0, 1, -5)
+		ProgBG.Size = UDim2.new(1, 0, 0, 5)
+		ProgBG.ZIndex = 201
+		ProgBG.Parent = NotifFrame
+		Corner(ProgBG, 3)
+
+		local Prog = Instance.new("Frame")
+		Prog.BackgroundColor3 = Color3.fromRGB(100, 80, 220)
+		Prog.BorderSizePixel = 0
+		Prog.Size = UDim2.new(1, 0, 1, 0)
+		Prog.ZIndex = 202
+		Prog.Parent = ProgBG
+		Corner(Prog, 3)
+
+		-- Slide in
+		Tween(NotifFrame, {Position = UDim2.new(1, -250, 1, -10)}, 0.3)
+		-- Shrink progress
+		Tween(Prog, {Size = UDim2.new(0, 0, 1, 0)}, duration)
+		-- Slide out
+		task.delay(duration, function()
+			Tween(NotifFrame, {Position = UDim2.new(1, -250, 1, 80)}, 0.3)
+			task.delay(0.35, function() NotifFrame:Destroy() end)
+		end)
+	end
+
+	-- ========================
+	-- window:SaveConfig(name) / window:LoadConfig(name)
+	-- ========================
+	function Window:SaveConfig(name)
+		local configName = (name or "config") .. ".json"
+		local ok, encoded = pcall(function()
+			return game:GetService("HttpService"):JSONEncode(self._config)
+		end)
+		if ok then
+			pcall(function() writefile(configName, encoded) end)
+			self:Notify("Config", "Saved: " .. configName, 2.5)
+		else
+			self:Notify("Config Error", "Failed to save.", 2.5)
+		end
+	end
+
+	function Window:LoadConfig(name)
+		local configName = (name or "config") .. ".json"
+		local ok, content = pcall(function() return readfile(configName) end)
+		if not ok or not content then
+			self:Notify("Config", "Not found: " .. configName, 2.5)
+			return
+		end
+		local ok2, data = pcall(function()
+			return game:GetService("HttpService"):JSONDecode(content)
+		end)
+		if ok2 and data then
+			for key, val in pairs(data) do
+				if self._configCallbacks[key] then
+					self._configCallbacks[key](val)
+				end
+			end
+			self:Notify("Config", "Loaded: " .. configName, 2.5)
+		else
+			self:Notify("Config Error", "Failed to read.", 2.5)
+		end
 	end
 
 	return Window
