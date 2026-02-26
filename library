@@ -86,26 +86,63 @@ local function TrackMouse(screenGui)
 	end)
 end
 
--- Draggable
+-- Draggable (robust version using invisible overlay handle)
 local function MakeDraggable(frame, handle)
-	local dragging, dragInput, dragStart, startPos
-	handle.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 then
-			dragging = true
-			dragStart = input.Position
-			startPos = frame.Position
-			input.Changed:Connect(function()
-				if input.UserInputState == Enum.UserInputState.End then dragging = false end
-			end)
+	local dragging = false
+	local dragStart = nil
+	local startPos = nil
+
+	local function beginDrag(input)
+		dragging = true
+		dragStart = input.Position
+		startPos = frame.Position
+	end
+
+	local function updateDrag(input)
+		if dragging and dragStart then
+			local delta = input.Position - dragStart
+			frame.Position = UDim2.new(
+				startPos.X.Scale, startPos.X.Offset + delta.X,
+				startPos.Y.Scale, startPos.Y.Offset + delta.Y
+			)
+		end
+	end
+
+	-- Invisible overlay so tab buttons don't steal input
+	local DragOverlay = Instance.new("TextButton")
+	DragOverlay.Name = "DragOverlay"
+	DragOverlay.Size = UDim2.new(1, 0, 1, 0)
+	DragOverlay.BackgroundTransparency = 1
+	DragOverlay.Text = ""
+	DragOverlay.ZIndex = 0
+	DragOverlay.Parent = handle
+
+	DragOverlay.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1
+			or input.UserInputType == Enum.UserInputType.Touch then
+			beginDrag(input)
 		end
 	end)
-	handle.InputChanged:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseMovement then dragInput = input end
+
+	DragOverlay.InputChanged:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseMovement
+			or input.UserInputType == Enum.UserInputType.Touch then
+			updateDrag(input)
+		end
 	end)
+
 	UIS.InputChanged:Connect(function(input)
-		if input == dragInput and dragging then
-			local delta = input.Position - dragStart
-			frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+		if input.UserInputType == Enum.UserInputType.MouseMovement
+			or input.UserInputType == Enum.UserInputType.Touch then
+			updateDrag(input)
+		end
+	end)
+
+	UIS.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1
+			or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = false
+			dragStart = nil
 		end
 	end)
 end
@@ -218,7 +255,7 @@ function Library:CreateWindow(title)
 	Close.MouseLeave:Connect(function() Tween(Close, {BackgroundColor3 = Color3.fromRGB(200,50,50)}) end)
 	Close.MouseButton1Click:Connect(function() SG:Destroy() end)
 
-	MakeDraggable(Main, TabBar)
+	MakeDraggable(Main, TitleLabel)
 
 	-- Window state
 	local activeTabs = {}
