@@ -1,45 +1,24 @@
-# 📦 Repo Library
+# 📦 LibraryGUI v2
+> A clean, lightweight Roblox UI Library for building script hubs and GUIs — with tabs, sections, buttons, toggles, dropboxes, sliders, and keybinds.
 
 ---
 
-## 📋 Table of Contents
-- [Installation](#installation)
-- [Quick Start](#quick-start)
-- [API Reference](#api-reference)
-  - [Library](#library)
-  - [Window](#window)
-  - [Tab](#tab)
-  - [Section](#section)
-  - [Button](#button)
-  - [Toggle](#toggle)
-  - [Dropbox](#dropbox)
-  - [Keybind](#keybind)
-- [Full Example](#full-example)
-
----
-
-## 🔧 Installation
-
+## 🚀 Load via URL
 
 ```lua
-loadstring(game:HttpGet("https://raw.githubusercontent.com/Catergems/Repo-library/refs/heads/main/library"))()
+local lib = loadstring(game:HttpGet("https://raw.githubusercontent.com/Catergems/Repo-library/refs/heads/main/library"))()
 ```
 
----
-
-```
-ReplicatedStorage/
-└── LibraryGUI    ← ModuleScript
-
-StarterPlayerScripts/
-└── MyScript      ← LocalScript (your code goes here)
-```
+> ⚠️ Make sure **HTTP Requests** are enabled in your game:
+> `Game Settings → Security → Allow HTTP Requests ✅`
 
 ---
 
 ## ⚡ Quick Start
 
 ```lua
+local lib = loadstring(game:HttpGet("https://raw.githubusercontent.com/Catergems/Repo-library/refs/heads/main/library"))()
+
 local window = lib:CreateWindow("My Hub")
 local tab    = window:CreateTab("Player")
 local sect   = tab:CreateSection("Movement")
@@ -48,6 +27,22 @@ sect:CreateButton("Say Hi", "Prints hello", function()
     print("Hello!")
 end)
 ```
+
+---
+
+## 📋 Table of Contents
+- [Load via URL](#-load-via-url)
+- [Quick Start](#-quick-start)
+- [API Reference](#-api-reference)
+  - [Library](#library)
+  - [Window](#window)
+  - [Tab](#tab)
+  - [Section](#section)
+  - [Button](#button)
+  - [Toggle](#toggle)
+  - [Dropbox](#dropbox)
+  - [Keybind](#keybind)
+- [Full Example](#-full-example)
 
 ---
 
@@ -272,7 +267,7 @@ kb:SetKey(Enum.KeyCode.G) -- force change the key
 ## 🧪 Full Example
 
 ```lua
-local lib = require(game.ReplicatedStorage:WaitForChild("LibraryGUI"))
+local lib = loadstring(game:HttpGet("https://raw.githubusercontent.com/Catergems/Repo-library/refs/heads/main/library"))()
 
 -- Window
 local window = lib:CreateWindow("My Hub")
