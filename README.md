@@ -8,9 +8,6 @@
 ```lua
 local lib = loadstring(game:HttpGet("https://raw.githubusercontent.com/Catergems/Repo-library/refs/heads/main/library"))()
 ```
-
-> ⚠️ Make sure **HTTP Requests** are enabled in your game:
-
 ---
 
 ## ⚡ Quick Start
