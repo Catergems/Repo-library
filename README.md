@@ -10,7 +10,6 @@ local lib = loadstring(game:HttpGet("https://raw.githubusercontent.com/Catergems
 ```
 
 > ⚠️ Make sure **HTTP Requests** are enabled in your game:
-> `Game Settings → Security → Allow HTTP Requests ✅`
 
 ---
 
